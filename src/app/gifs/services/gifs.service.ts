@@ -19,7 +19,8 @@ export class GifService {
   private http = inject(HttpClient);
 
   trendingGifs = signal<Gif[]>([]);
-  trendingGifsLoading = signal(true);
+  trendingGifsLoading = signal(false);
+  private trendingPage = signal(0);
 
   trendingGifsGrouped = computed( () => {
     const gifs = this.trendingGifs();
@@ -39,9 +40,6 @@ export class GifService {
 
   constructor() {
     this.loadTrandingGifs();
-
-    console.log('GifService initialized');
-    console.log('Search history keys:', this.searchHistoryKeys());
   }
 
   saveGifsToLocalStorage = effect( () => {
@@ -50,15 +48,23 @@ export class GifService {
   } );
 
   loadTrandingGifs(){
+
+    if ( this.trendingGifsLoading() ) return;
+
+    this.trendingGifsLoading.set( true );
+
+
+
     this.http.get<GiphyResponse>(`${environment.giphyURL}/gifs/trending`,{
       params: {
         api_key: environment.giphyApiKey,
         limit: '20',
+        offset: ( this.trendingPage() * 20 ).toString(),
       }
     }).subscribe( (resp) => {
       const gifs = GifMapper.mapGiphyItemsToGifsArray( resp.data );
-      console.log({ gifs });
-      this.trendingGifs.set( gifs );
+      this.trendingGifs.update( (currentGifs) => [ ...currentGifs, ...gifs ] );
+      this.trendingPage.update( (page) => page + 1 );
       this.trendingGifsLoading.set( false );
 
     });
